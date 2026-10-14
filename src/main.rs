@@ -12,23 +12,22 @@
 //! supplies only its registration data, state and routes. (Meta has no
 //! OpenAPI spec — its registration carries none.)
 
-#[allow(dead_code)]
-mod event_consumer;
 mod ad_pricing;
-mod master_key;
-mod event_emit;
 mod admin_ui;
 mod auth;
 #[allow(dead_code)]
 mod config;
 #[allow(dead_code)]
+mod event_consumer;
+mod event_emit;
+#[allow(dead_code)]
 mod handlers;
-mod registration;
-pub mod policy;
+mod master_key;
 mod openapi;
+pub mod policy;
+mod registration;
 #[allow(dead_code)]
 mod server;
-
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

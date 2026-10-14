@@ -80,8 +80,14 @@ mod tests {
     #[test]
     fn discrepancy_predicate() {
         assert_eq!(discrepancy(None, true), Some(Discrepancy::MissingSource));
-        assert_eq!(discrepancy(Some(0), true), Some(Discrepancy::AvailabilityMismatch));
-        assert_eq!(discrepancy(Some(5), false), Some(Discrepancy::AvailabilityMismatch));
+        assert_eq!(
+            discrepancy(Some(0), true),
+            Some(Discrepancy::AvailabilityMismatch)
+        );
+        assert_eq!(
+            discrepancy(Some(5), false),
+            Some(Discrepancy::AvailabilityMismatch)
+        );
         assert_eq!(discrepancy(Some(5), true), None);
         assert_eq!(discrepancy(Some(0), false), None);
     }

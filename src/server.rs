@@ -4,15 +4,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Axum server setup for Meta.
-use std::sync::Arc;
-use axum::routing::{get, post, put};
 use crate::handlers::AppState;
+use axum::routing::{get, post, put};
+use std::sync::Arc;
 
 /// Build the service state (config, pool, cert-presenting bus client). Runs
 /// inside the shell's `with_state` closure — the pool arrives already
 /// created and PG18-checked.
-pub async fn build_state(core: sentin8::shell::ServiceCore)
-    -> anyhow::Result<crate::handlers::AppState> {
+pub async fn build_state(
+    core: sentin8::shell::ServiceCore,
+) -> anyhow::Result<crate::handlers::AppState> {
     let config = crate::config::MetaConfig::from_env();
 
     // Cert-presenting Bus client (CERTFREE-4V): the `meta` workload
@@ -90,49 +91,95 @@ pub async fn build_state(core: sentin8::shell::ServiceCore)
 /// owns the boot sequence, state binding and the standard middleware stack;
 /// this adds ONLY routes (including the service's own `/v1/health`).
 /// (Meta has no OpenAPI spec — its registration carries none.)
-pub fn routes(router: axum::Router<crate::handlers::AppState>)
-    -> axum::Router<crate::handlers::AppState> {
-   router
+pub fn routes(
+    router: axum::Router<crate::handlers::AppState>,
+) -> axum::Router<crate::handlers::AppState> {
+    router
         .route("/v1/health", get(crate::handlers::health))
         // ── Admin UI (RFW) ─────────────────────────────────────────────────
         .route("/v1/admin/ui/{*page}", get(crate::admin_ui::get_admin_ui))
         // ── Sentin8:Policy admin API (shared implementation,
         // handlers generic over this AppState).
-        .route("/v1/admin/policy-sets",
-            get(sentin8::shield::admin::list_policy_sets::<crate::handlers::AppState>))
-        .route("/v1/admin/policy-sets/{name}",
+        .route(
+            "/v1/admin/policy-sets",
+            get(sentin8::shield::admin::list_policy_sets::<crate::handlers::AppState>),
+        )
+        .route(
+            "/v1/admin/policy-sets/{name}",
             get(sentin8::shield::admin::get_policy_set::<crate::handlers::AppState>)
                 .put(sentin8::shield::admin::put_policy_set::<crate::handlers::AppState>)
-                .delete(sentin8::shield::admin::delete_policy_set::<crate::handlers::AppState>))
-        .route("/v1/admin/policy-sets/{name}/test",
-            post(sentin8::shield::admin::test_policy_set::<crate::handlers::AppState>))
-        .route("/v1/admin/policy-sets/enforce",
-            post(sentin8::shield::admin::admin_enforce_policy_set::<crate::handlers::AppState>))
-        .route("/v1/admin/policy-sets/shadow",
-            post(sentin8::shield::admin::admin_shadow_policy_set::<crate::handlers::AppState>))
-        .route("/v1/admin/policy-sets/disable",
-            post(sentin8::shield::admin::admin_disable_policy_set::<crate::handlers::AppState>))
-        .route("/v1/admin/relations",
+                .delete(sentin8::shield::admin::delete_policy_set::<crate::handlers::AppState>),
+        )
+        .route(
+            "/v1/admin/policy-sets/{name}/test",
+            post(sentin8::shield::admin::test_policy_set::<crate::handlers::AppState>),
+        )
+        .route(
+            "/v1/admin/policy-sets/enforce",
+            post(sentin8::shield::admin::admin_enforce_policy_set::<crate::handlers::AppState>),
+        )
+        .route(
+            "/v1/admin/policy-sets/shadow",
+            post(sentin8::shield::admin::admin_shadow_policy_set::<crate::handlers::AppState>),
+        )
+        .route(
+            "/v1/admin/policy-sets/disable",
+            post(sentin8::shield::admin::admin_disable_policy_set::<crate::handlers::AppState>),
+        )
+        .route(
+            "/v1/admin/relations",
             get(sentin8::shield::admin::list_relations::<crate::handlers::AppState>)
                 .put(sentin8::shield::admin::put_relation::<crate::handlers::AppState>)
-                .delete(sentin8::shield::admin::delete_relation::<crate::handlers::AppState>))
-        .route("/v1/admin/relations/check",
-            get(sentin8::shield::admin::check_relation::<crate::handlers::AppState>))
-        .route("/v1/admin/attributes",
+                .delete(sentin8::shield::admin::delete_relation::<crate::handlers::AppState>),
+        )
+        .route(
+            "/v1/admin/relations/check",
+            get(sentin8::shield::admin::check_relation::<crate::handlers::AppState>),
+        )
+        .route(
+            "/v1/admin/attributes",
             get(sentin8::shield::admin::list_attributes::<crate::handlers::AppState>)
                 .put(sentin8::shield::admin::put_attribute::<crate::handlers::AppState>)
-                .delete(sentin8::shield::admin::delete_attribute::<crate::handlers::AppState>))
-        .route("/v1/channels", post(crate::handlers::create_channel).get(crate::handlers::list_channels))
-        .route("/v1/channels/{channel_id}", put(crate::handlers::update_channel).delete(crate::handlers::delete_channel))
-        .route("/v1/channel-configs", post(crate::handlers::configure_channel))
-        .route("/v1/channels/{channel_id}/configs", get(crate::handlers::list_channel_configs))
-        .route("/v1/channels/{channel_id}/sync", post(crate::handlers::sync_ari))
+                .delete(sentin8::shield::admin::delete_attribute::<crate::handlers::AppState>),
+        )
+        .route(
+            "/v1/channels",
+            post(crate::handlers::create_channel).get(crate::handlers::list_channels),
+        )
+        .route(
+            "/v1/channels/{channel_id}",
+            put(crate::handlers::update_channel).delete(crate::handlers::delete_channel),
+        )
+        .route(
+            "/v1/channel-configs",
+            post(crate::handlers::configure_channel),
+        )
+        .route(
+            "/v1/channels/{channel_id}/configs",
+            get(crate::handlers::list_channel_configs),
+        )
+        .route(
+            "/v1/channels/{channel_id}/sync",
+            post(crate::handlers::sync_ari),
+        )
         .route("/v1/cron/full-sync", post(crate::handlers::full_sync))
-        .route("/v1/channels/{channel_id}/verify", post(crate::handlers::verify_rate_accuracy))
-        .route("/v1/channels/{channel_id}/content", post(crate::handlers::push_content))
-        .route("/v1/admin/properties/{property_id}/analytics", get(crate::handlers::get_analytics))
+        .route(
+            "/v1/channels/{channel_id}/verify",
+            post(crate::handlers::verify_rate_accuracy),
+        )
+        .route(
+            "/v1/channels/{channel_id}/content",
+            post(crate::handlers::push_content),
+        )
+        .route(
+            "/v1/admin/properties/{property_id}/analytics",
+            get(crate::handlers::get_analytics),
+        )
         .route("/v1/utm/generate", post(crate::handlers::generate_utm))
-        .route("/v1/channels/{channel_id}/credentials", post(crate::handlers::encrypt_credentials))
+        .route(
+            "/v1/channels/{channel_id}/credentials",
+            post(crate::handlers::encrypt_credentials),
+        )
         .route("/v1/rate-limits", get(crate::handlers::get_rate_limits))
 }
 
