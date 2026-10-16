@@ -2,7 +2,11 @@
   "vertical": "hotel8",
   "services": [
     {
-      "service_type": "hotel8:meta"
+      "service_type": "hotel8:meta",
+      "telemetry_property": {
+        "slug": "meta",
+        "name": "Hotel8:Meta Telemetry"
+      }
     }
   ]
 }
