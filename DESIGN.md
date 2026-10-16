@@ -68,7 +68,7 @@ sequenceDiagram
     M->>S: require(hotel8:meta:channels:write)
     S-->>M: permit
     M->>K: wrap secret material
-    M->>DB: BEGIN; upsert channel + secret reference; journal; outbox (credentials:stored); COMMIT
+    M->>DB: BEGIN, upsert channel + secret reference, journal, outbox (credentials:stored), COMMIT
     M-->>A: 200 (secret never echoed)
 ```
 
