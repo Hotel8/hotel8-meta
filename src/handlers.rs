@@ -53,6 +53,17 @@ fn err_emit(e: sentin8::bus::outbox::OutboxError) -> (StatusCode, String) {
 fn pct_encode(s: &str) -> String {
     crate::ad_pricing::pct_encode(s)
 }
+#[utoipa::path(
+    get,
+    path = "/v1/health",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta",
+)]
 
 pub async fn health(
     axum::extract::State(_state): axum::extract::State<AppState>,
@@ -62,6 +73,17 @@ pub async fn health(
     )
 }
 
+#[utoipa::path(
+    post,
+    path = "/v1/channels",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta",
+)]
 pub async fn create_channel(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
@@ -104,6 +126,17 @@ pub async fn create_channel(
         serde_json::json!({ "id": id, "property_id": property_id, "channel_code": row.get::<String, _>("channel_code"), "channel_name": row.get::<String, _>("channel_name"), "channel_type": row.get::<String, _>("channel_type"), "is_active": row.get::<bool, _>("is_active") }),
     ))
 }
+#[utoipa::path(
+    get,
+    path = "/v1/channels",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta",
+)]
 
 pub async fn list_channels(
     State(state): State<AppState>,
@@ -136,6 +169,17 @@ pub async fn list_channels(
 }
 
 // H4 — remaining handlers
+#[utoipa::path(
+    put,
+    path = "/v1/channels/{channel_id}",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta",
+)]
 
 pub async fn update_channel(
     State(state): State<AppState>,
@@ -187,6 +231,17 @@ pub async fn update_channel(
         "api_key_ref": row.get::<Option<String>, _>("api_key_ref"),
     })))
 }
+#[utoipa::path(
+    delete,
+    path = "/v1/channels/{channel_id}",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta",
+)]
 
 pub async fn delete_channel(
     State(state): State<AppState>,
@@ -227,6 +282,17 @@ pub async fn delete_channel(
         serde_json::json!({ "deleted": true, "id": channel_id }),
     ))
 }
+#[utoipa::path(
+    post,
+    path = "/v1/channel-configs",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta",
+)]
 
 pub async fn configure_channel(
     State(state): State<AppState>,
@@ -305,6 +371,17 @@ pub async fn configure_channel(
         "is_enabled": row.get::<bool, _>("is_enabled"),
     })))
 }
+#[utoipa::path(
+    get,
+    path = "/v1/channels/{channel_id}/configs",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta",
+)]
 
 pub async fn list_channel_configs(
     State(state): State<AppState>,
@@ -346,6 +423,17 @@ pub async fn list_channel_configs(
     conn.commit().await.map_err(err_db)?;
     Ok(Json(serde_json::json!({ "items": items })))
 }
+#[utoipa::path(
+    post,
+    path = "/v1/channels/{channel_id}/sync",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta",
+)]
 
 pub async fn sync_ari(
     State(state): State<AppState>,
@@ -448,6 +536,17 @@ pub async fn sync_ari(
         serde_json::json!({ "channel_id": channel_id, "property_id": property_id, "records_pushed": pushed, "rate_multiplier": multiplier }),
     ))
 }
+#[utoipa::path(
+    post,
+    path = "/v1/cron/full-sync",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta-cron",
+)]
 
 pub async fn full_sync(
     State(state): State<AppState>,
@@ -548,6 +647,17 @@ pub async fn full_sync(
         serde_json::json!({ "channels_synced": channels.len(), "total_records_pushed": total_pushed, "results": channel_results }),
     ))
 }
+#[utoipa::path(
+    post,
+    path = "/v1/channels/{channel_id}/verify",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta",
+)]
 
 pub async fn verify_rate_accuracy(
     State(state): State<AppState>,
@@ -665,6 +775,17 @@ pub async fn verify_rate_accuracy(
         serde_json::json!({ "channel_id": channel_id, "discrepancy_count": rows_len, "discrepancies": discrepancies }),
     ))
 }
+#[utoipa::path(
+    post,
+    path = "/v1/channels/{channel_id}/content",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta",
+)]
 
 pub async fn push_content(
     State(state): State<AppState>,
@@ -732,6 +853,17 @@ pub async fn push_content(
         serde_json::json!({ "channel_id": channel_id, "property_id": property_id, "room_types_pushed": room_items.len(), "rooms": room_items }),
     ))
 }
+#[utoipa::path(
+    get,
+    path = "/v1/admin/properties/{property_id}/analytics",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta-admin",
+)]
 
 pub async fn get_analytics(
     State(state): State<AppState>,
@@ -799,6 +931,17 @@ pub async fn get_analytics(
         "daily": daily_items,
     })))
 }
+#[utoipa::path(
+    post,
+    path = "/v1/utm/generate",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta",
+)]
 
 pub async fn generate_utm(
     State(state): State<AppState>,
@@ -889,6 +1032,17 @@ pub async fn generate_utm(
         serde_json::json!({ "deep_link": deep_link, "utm": serde_json::json!({ "source": utm_source, "medium": utm_medium, "campaign": utm_campaign, "term": utm_term, "content": utm_content }) }),
     ))
 }
+#[utoipa::path(
+    post,
+    path = "/v1/channels/{channel_id}/credentials",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta",
+)]
 
 pub async fn encrypt_credentials(
     State(state): State<AppState>,
@@ -962,6 +1116,17 @@ pub async fn encrypt_credentials(
         serde_json::json!({ "channel_id": channel_id, "secret_ref": secret_ref, "stored": true }),
     ))
 }
+#[utoipa::path(
+    get,
+    path = "/v1/rate-limits",
+    responses(
+        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(),
+    tag = "meta",
+)]
 
 pub async fn get_rate_limits(
     State(state): State<AppState>,

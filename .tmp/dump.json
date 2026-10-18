@@ -1,0 +1,418 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "hotel8-meta",
+    "description": "Sentin8 Hotel8:Meta — Metasearch Connector service.",
+    "license": {
+      "name": "MIT OR Apache-2.0",
+      "identifier": "MIT OR Apache-2.0"
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/v1/admin/properties/{property_id}/analytics": {
+      "get": {
+        "tags": [
+          "meta-admin"
+        ],
+        "operationId": "get_analytics",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/admin/ui/{page}": {
+      "get": {
+        "tags": [
+          "meta-admin"
+        ],
+        "operationId": "get_admin_ui",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/channel-configs": {
+      "post": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "configure_channel",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/channels": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "list_channels",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      },
+      "post": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "create_channel",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/channels/{channel_id}": {
+      "put": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "update_channel",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      },
+      "delete": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "delete_channel",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/channels/{channel_id}/configs": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "list_channel_configs",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/channels/{channel_id}/content": {
+      "post": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "push_content",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/channels/{channel_id}/credentials": {
+      "post": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "encrypt_credentials",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/channels/{channel_id}/sync": {
+      "post": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "sync_ari",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/channels/{channel_id}/verify": {
+      "post": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "verify_rate_accuracy",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/cron/full-sync": {
+      "post": {
+        "tags": [
+          "meta-cron"
+        ],
+        "operationId": "full_sync",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/health": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/rate-limits": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "get_rate_limits",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/utm/generate": {
+      "post": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "generate_utm",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "components": {},
+  "security": [],
+  "tags": [
+    {
+      "name": "meta",
+      "description": "Hotel8:Meta — metasearch connector"
+    }
+  ]
+}
