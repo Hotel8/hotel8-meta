@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Hotel8:Meta
 // SPDX-License-Identifier: Apache-2.0
 
-//! Pure meta ad pricing + discrepancy rules — DB-free.
+//! Pure meta ad pricing + discrepancy rules - DB-free.
 //!
 //! Mirrors `sync_ari` (multiplier + 2-dp formatting), the
 //! `verify_rate_accuracy` discrepancy predicate, and re-exports the UTM

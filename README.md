@@ -1,4 +1,4 @@
-# README.md: Hotel8:Meta — Metasearch Integration
+# README.md: Hotel8:Meta - Metasearch Integration
 
 ## 1. Summary
 
@@ -29,30 +29,30 @@ graph TD
         ADS --> OB7[(meta.outbox)]
         AJ7[(meta.audit_journal)] --> PSH7[shell audit pusher]
         CON7[direct consumer] -- "hotel8:pms:inventory:updated" --> ADS
-        SECRETS[channel credentials — crypto master key] --> ADS
+        SECRETS[channel credentials - crypto master key] --> ADS
     end
     DB7[(db hotel8 / schema meta)] --> ADS
 ```
 
 ## 4. Key Traits and Data Structures
 
-- **Credential custody** — `meta.channel_secrets` holds secret *references*
+- **Credential custody** - `meta.channel_secrets` holds secret *references*
   (encrypted material via the platform crypto master key), never plaintext;
   `credentials:stored` events mark the change.
-- Ad pricing — `meta.rate_ads` rows carry the derived
+- Ad pricing - `meta.rate_ads` rows carry the derived
   (base ± adjustment) advertisement and their verification state
   (`rate:verified`).
-- Sync ledger — `meta.sync_log` records full/partial sync outcomes
+- Sync ledger - `meta.sync_log` records full/partial sync outcomes
   (`full_sync:completed`, `ari:synced`).
 
 ## 5. Rationale, Trade-offs, and Alternatives
 
-- **Rate ads derived, never invented** — a published rate is always
+- **Rate ads derived, never invented** - a published rate is always
   traceable to PMS retail + policy; inventing prices in the ad layer would
   create parity incidents.
-- **Secrets by reference** — the channel key is decrypted in-process per
+- **Secrets by reference** - the channel key is decrypted in-process per
   use; plaintext never reaches tables (platform secret-handling rule).
-- **Read-mostly service** — metasearch changes slow; hot path is the
+- **Read-mostly service** - metasearch changes slow; hot path is the
   consumer republish and the booking-attribute telemetry, both event-shaped.
 
 ## 6. Internal Implementation & Invariants (Private Design)

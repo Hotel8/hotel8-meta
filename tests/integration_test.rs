@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Hotel8:Meta
 // SPDX-License-Identifier: Apache-2.0
 
-//! Hotel8:Meta integration tests (test-strategy Layer 3) — DB-free.
+//! Hotel8:Meta integration tests (test-strategy Layer 3) - DB-free.
 //!
 //! Exercises the extracted ad pricing, discrepancy predicate and UTM link
 //! builder exactly as `sync_ari` / `verify_rate_accuracy` / `generate_utm`
@@ -52,7 +52,7 @@ fn utm_encoding_is_safe_in_urls() {
 #[test]
 fn multiplier_rounding_matches_display_format() {
     // `{:.2}` formatting (Rust rounds to nearest, ties to even on binary
-    // floats) — the test pins the exact behavior `sync_ari` relies on.
+    // floats) - the test pins the exact behavior `sync_ari` relies on.
     assert_eq!(ad::adjusted_rate(10.124, 1.0), "10.12");
     assert_eq!(ad::adjusted_rate(10.126, 1.0), "10.13");
     assert_eq!(ad::adjusted_rate(10.005, 1.0), "10.01"); // 10.005 stores as 10.0050000000000007816 → rounds up

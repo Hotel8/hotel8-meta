@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "hotel8-meta",
-    "description": "Sentin8 Hotel8:Meta — Metasearch Connector service.",
+    "description": "Sentin8 Hotel8:Meta - Metasearch Connector service.",
     "license": {
       "name": "MIT OR Apache-2.0",
       "identifier": "MIT OR Apache-2.0"
@@ -412,7 +412,7 @@
   "tags": [
     {
       "name": "meta",
-      "description": "Hotel8:Meta — metasearch connector"
+      "description": "Hotel8:Meta - metasearch connector"
     }
   ]
 }

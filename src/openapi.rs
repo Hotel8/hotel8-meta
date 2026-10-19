@@ -48,6 +48,6 @@ use utoipa::OpenApi;
     security(),
     tags(
         (name = "policy", description = "Shield policy administration (shared surface)"),
-        (name = "meta", description = "Hotel8:Meta — metasearch connector"),
+        (name = "meta", description = "Hotel8:Meta - metasearch connector"),
     ),
 )]pub struct MetaOpenApi;

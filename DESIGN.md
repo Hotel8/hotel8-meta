@@ -1,8 +1,8 @@
-# Hotel8:Meta — Detailed Design Document
+# Hotel8:Meta - Detailed Design Document
 
 ## 1. Scope & Context
 
-**Owned by Meta:** database `hotel8`, schema `meta` — 8 tables
+**Owned by Meta:** database `hotel8`, schema `meta` - 8 tables
 (`meta.channels`, `channel_configs`, `channel_secrets`, `rate_ads`, `clicks`,
 `sync_log` + `meta.channel_type` enum + `meta.outbox` /
 `meta.audit_journal`); event family `meta`; the ARI-republish direct
@@ -55,7 +55,7 @@ graph LR
     CONM[consumer: PMS inventory] -- SSE --> BUSM2[("stream meta intake")]
 ```
 
-### Request lifecycle — save channel credentials
+### Request lifecycle - save channel credentials
 
 ```mermaid
 sequenceDiagram
@@ -72,7 +72,7 @@ sequenceDiagram
     M-->>A: 200 (secret never echoed)
 ```
 
-### Request lifecycle — rate ad verification
+### Request lifecycle - rate ad verification
 
 ```mermaid
 sequenceDiagram
@@ -122,15 +122,15 @@ erDiagram
 
 **Admin/RFU**: RFW pages + shared policy admin trio.
 
-### Cross-service data access — decision order (membus → bus → owner API)
+### Cross-service data access - decision order (membus → bus → owner API)
 
 Rate-ad freshness rides the bus: `hotel8:pms:inventory:updated` (consumer
-group `meta-ari-sync`) re-derives rate ads from live availability — the
+group `meta-ari-sync`) re-derives rate ads from live availability - the
 event carries the inventory snapshot, so re-derivation needs no PMS
 call-back on the hot path. The owner-API residual is the daily ARI horizon
-pull (`get_inventory` — synchronous read-your-writes for verification) and
+pull (`get_inventory` - synchronous read-your-writes for verification) and
 reservation-write hook-backs from metasearch booking refs (the caller
-returns the PMS confirmation). MemBus: none — ad refresh cadence is
+returns the PMS confirmation). MemBus: none - ad refresh cadence is
 content-sync pace. No pms-schema grant; meta's partner secrets stay in
 meta.channel_secrets.
 
@@ -152,7 +152,7 @@ sequenceDiagram
 
 ## 5. Cross-Cutting Concerns
 
-Auth/tenant/RLS/audit/drain/TLS/pool — platform contract via the shell.
+Auth/tenant/RLS/audit/drain/TLS/pool - platform contract via the shell.
 Secret handling follows sentin8-secret-handling: references in tables,
 plaintext only in-process via the master key.
 
@@ -161,7 +161,7 @@ plaintext only in-process via the master key.
 ```mermaid
 flowchart TD
     A[Partner feed error] --> B[sync_log records outcome; retry path]
-    C[Unverified rate] --> D[never advertised — sync row records the skip]
+    C[Unverified rate] --> D[never advertised - sync row records the skip]
     E[Bus outage] --> F[outbox persists; relay retries]
     G[Master key unavailable] --> H[credential operations fail closed]
 ```
@@ -194,8 +194,8 @@ graph LR
 
 ```mermaid
 graph TD
-    UM[Unit — ad derivation + verification gates] --> IM[Integration — consumer wiring, policy parity]
-    IM --> EM[E2E — admin surfaces + credential rotation via BFF]
+    UM[Unit - ad derivation + verification gates] --> IM[Integration - consumer wiring, policy parity]
+    IM --> EM[E2E - admin surfaces + credential rotation via BFF]
 ```
 
 ## 10. Open Questions

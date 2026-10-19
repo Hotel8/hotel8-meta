@@ -3,7 +3,7 @@
 -- SPDX-FileCopyrightText: Copyright Contributors to the Hotel8:Meta
 -- SPDX-License-Identifier: Apache-2.0
 
--- Hotel8:Meta — Metasearch connector tables.
+-- Hotel8:Meta - Metasearch connector tables.
 CREATE SCHEMA IF NOT EXISTS meta;
 DO $$ BEGIN
     CREATE TYPE meta.channel_type AS ENUM ('GOOGLE', 'TRIVAGO', 'KAYAK', 'SKYSCANNER', 'TRIPADVISOR', 'BING');
@@ -68,7 +68,7 @@ CREATE POLICY meta_ra_rls ON meta.rate_ads USING (channel_id IN (SELECT id FROM 
 DROP POLICY IF EXISTS meta_clicks_rls ON meta.clicks;
 CREATE POLICY meta_clicks_rls ON meta.clicks USING (sentin8_context_initialized() AND env_id = sentin8_current_env_id());
 -- ──────────────────────────────────────────────────────────────────────────
--- Local outbox (DBX, architecture-principles §6.7) — producer path:
+-- Local outbox (DBX, architecture-principles §6.7) - producer path:
 -- rows are appended in the SAME transaction as the domain change; the
 -- shell's post-commit relay pushes them to Bus POST /v1/produce
 -- (M2M sentin8:bus:produce, idempotency_key = row id).
@@ -118,7 +118,7 @@ CREATE TRIGGER outbox_notify_trigger
 -- Local audit journal (architecture-principles §6.8): same-transaction
 -- journal rows; the shell's post-commit pusher ships them to Sys
 -- POST /v1/audit (M2M sentin8:sys:audit:write). A Sys outage only delays
--- delivery — rows persist until pushed.
+-- delivery - rows persist until pushed.
 -- Generated from sentin8_audit::audit_journal_sql("meta").
 -- ──────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS meta.audit_journal (

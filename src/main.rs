@@ -3,14 +3,14 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Hotel8:Meta
 // SPDX-License-Identifier: Apache-2.0
 
-//! Sentin8 Meta — metasearch channel management for Hotel8.
+//! Sentin8 Meta - metasearch channel management for Hotel8.
 //!
 //! Boot runs on the platform `sentin8-shell` crate (design
 //! `sentin8/design/sentin8-sentin8-shell-technical-design.md`): registration
 //! flag, PQ provider, config, capped pool, PG18 check, state binding,
 //! middleware stack and PQ-TLS listener are owned by the shell. This binary
 //! supplies only its registration data, state and routes. (Meta has no
-//! OpenAPI spec — its registration carries none.)
+//! OpenAPI spec - its registration carries none.)
 
 mod ad_pricing;
 mod admin_ui;

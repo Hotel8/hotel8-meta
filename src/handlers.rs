@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Hotel8:Meta
 // SPDX-License-Identifier: Apache-2.0
 
-//! Meta HTTP handlers — metasearch channel management.
+//! Meta HTTP handlers - metasearch channel management.
 use crate::config::MetaConfig;
 use crate::event_emit::{emit_tx, Publisher};
 use axum::extract::{Path, Query, State};
@@ -18,13 +18,13 @@ pub struct AppState {
     pub config: Arc<MetaConfig>,
     pub pool: sqlx::PgPool,
     pub bus_client: sentin8::bus::client::BusClient,
-    /// Cross-service PMS client (B1) — replaces direct pms_* SQL.
+    /// Cross-service PMS client (B1) - replaces direct pms_* SQL.
     pub pms_client: hotel8::pms::client::H8pmsClient,
-    /// Shield policy engine: step 5 is the ONLY gate —
-    /// handlers verify the token (steps 1–4) then evaluate a
+    /// Shield policy engine: step 5 is the ONLY gate -
+    /// handlers verify the token (steps 1-4) then evaluate a
     /// `hotel8:meta:<resource>:<action>` target; no JWT scope check remains.
     pub policy: Arc<crate::policy::Engine>,
-    /// Shared Sentin8:Policy admin surface — same engine
+    /// Shared Sentin8:Policy admin surface - same engine
     /// instance the request path evaluates.
     pub admin: sentin8::shield::admin::SharedAdminState,
 }
@@ -43,12 +43,12 @@ fn err_db(e: sqlx::Error) -> (StatusCode, String) {
 }
 
 /// Map an outbox-emission failure to a 500 (DBX: a silently lost
-/// event is a contract violation — same 500 contract as `err_db`).
+/// event is a contract violation - same 500 contract as `err_db`).
 fn err_emit(e: sentin8::bus::outbox::OutboxError) -> (StatusCode, String) {
     (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
 }
 
-/// Percent-encoding for UTM parameters — delegated to the pure module
+/// Percent-encoding for UTM parameters - delegated to the pure module
 /// (`ad_pricing::pct_encode`, tested in D4).
 fn pct_encode(s: &str) -> String {
     crate::ad_pricing::pct_encode(s)
@@ -168,7 +168,7 @@ pub async fn list_channels(
     Ok(Json(serde_json::json!({ "items": items })))
 }
 
-// H4 — remaining handlers
+// H4 - remaining handlers
 #[utoipa::path(
     put,
     path = "/v1/channels/{channel_id}",
@@ -471,7 +471,7 @@ pub async fn sync_ari(
         .unwrap_or(1.0);
 
     // B1: inventory read goes through the PMS HTTP API. The API exposes
-    // numeric availability + sell limits per room_type_id/date — rate codes
+    // numeric availability + sell limits per room_type_id/date - rate codes
     // and amounts come from the property's rate plans via the same API.
     let today = chrono::Utc::now().date_naive();
     let horizon = today + chrono::Duration::days(90);
@@ -678,7 +678,7 @@ pub async fn verify_rate_accuracy(
 
     // B1: compare meta_rate_ads against the PMS via the HTTP API.
     // Load the property's current inventory snapshot and diff it in memory
-    // (the old SQL joined pms_inventory directly — a §4.7 violation, and it
+    // (the old SQL joined pms_inventory directly - a §4.7 violation, and it
     // referenced non-existent columns).
     let channel =
         sqlx::query("SELECT property_id FROM meta.channels WHERE id = $1 AND env_id = $2")
@@ -1008,7 +1008,7 @@ pub async fn generate_utm(
     }
 
     // D4: the link shape (base + ?utm_source=&utm_medium=&utm_campaign=) is
-    // `ad_pricing::utm_deep_link` — the multi-param path below extends it
+    // `ad_pricing::utm_deep_link` - the multi-param path below extends it
     // with the optional term/content/property/dates parameters.
     let deep_link =
         crate::ad_pricing::utm_deep_link(base_url, utm_source, utm_medium, utm_campaign);
