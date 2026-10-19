@@ -5,7 +5,8 @@
 
 //! OpenAPI spec for hotel8-meta service.
 //!
-//! Meta has no CLI-facing admin API endpoints, so the spec is empty.
+//! Schema groups mirror the contracts wire sections (channels, configs,
+//! sync, verification, content, analytics, utm, credentials, rate limits).
 
 use utoipa::OpenApi;
 
@@ -44,7 +45,68 @@ use utoipa::OpenApi;
         crate::handlers::encrypt_credentials,
         crate::handlers::get_rate_limits,
     ),
-    components(schemas()),
+    components(
+        // ── Health
+        schemas(hotel8::meta::contracts::MetaHealth),
+        // ── Channels (alphabetical)
+        schemas(
+            hotel8::meta::contracts::ChannelCreateRequest,
+            hotel8::meta::contracts::ChannelCreatedResponse,
+            hotel8::meta::contracts::ChannelDeletedResponse,
+            hotel8::meta::contracts::ChannelListQuery,
+            hotel8::meta::contracts::ChannelListResponse,
+            hotel8::meta::contracts::ChannelListRow,
+            hotel8::meta::contracts::ChannelUpdateRequest,
+            hotel8::meta::contracts::ChannelUpdatedResponse,
+        ),
+        // ── Channel configs (alphabetical)
+        schemas(
+            hotel8::meta::contracts::ChannelConfigListResponse,
+            hotel8::meta::contracts::ChannelConfigRequest,
+            hotel8::meta::contracts::ChannelConfigResponse,
+        ),
+        // ── ARI / full sync (alphabetical)
+        schemas(
+            hotel8::meta::contracts::AriSyncResult,
+            hotel8::meta::contracts::ChannelSyncRow,
+            hotel8::meta::contracts::FullSyncResult,
+        ),
+        // ── Rate verification (alphabetical)
+        schemas(
+            hotel8::meta::contracts::RateDiscrepancy,
+            hotel8::meta::contracts::RateDiscrepancyMismatch,
+            hotel8::meta::contracts::RateDiscrepancyMissing,
+            hotel8::meta::contracts::RateVerificationResult,
+        ),
+        // ── Content push
+        schemas(
+            hotel8::meta::contracts::ContentPushResult,
+            hotel8::meta::contracts::ContentRoomType,
+        ),
+        // ── Analytics (alphabetical)
+        schemas(
+            hotel8::meta::contracts::AnalyticsDailyRow,
+            hotel8::meta::contracts::AnalyticsResponse,
+            hotel8::meta::contracts::AnalyticsRevenue,
+        ),
+        // ── UTM deep links (alphabetical)
+        schemas(
+            hotel8::meta::contracts::UtmDeepLink,
+            hotel8::meta::contracts::UtmGenerateRequest,
+            hotel8::meta::contracts::UtmParams,
+        ),
+        // ── Credentials
+        schemas(
+            hotel8::meta::contracts::CredentialRequest,
+            hotel8::meta::contracts::CredentialStored,
+        ),
+        // ── Rate limits (alphabetical)
+        schemas(
+            hotel8::meta::contracts::RateLimitAri,
+            hotel8::meta::contracts::RateLimitFamily,
+            hotel8::meta::contracts::RateLimits,
+        ),
+    ),
     security(),
     tags(
         (name = "policy", description = "Shield policy administration (shared surface)"),

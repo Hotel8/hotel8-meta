@@ -57,7 +57,7 @@ fn pct_encode(s: &str) -> String {
     get,
     path = "/v1/health",
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::MetaHealth),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
     ),
@@ -67,17 +67,22 @@ fn pct_encode(s: &str) -> String {
 
 pub async fn health(
     axum::extract::State(_state): axum::extract::State<AppState>,
-) -> axum::Json<serde_json::Value> {
-    axum::Json(
-        serde_json::json!({ "status": "ok", "service": "meta", "version": sentin8::build_info::id(), "build": sentin8::build_info::build_hash() }),
-    )
+) -> axum::Json<hotel8::meta::contracts::MetaHealth> {
+    axum::Json(hotel8::meta::contracts::MetaHealth {
+        status: "ok".into(),
+        service: "meta".into(),
+        version: sentin8::build_info::id(),
+        build: sentin8::build_info::build_hash().to_string(),
+    })
 }
 
 #[utoipa::path(
     post,
     path = "/v1/channels",
+    request_body = hotel8::meta::contracts::ChannelCreateRequest,
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::ChannelCreatedResponse),
+        (status = 400, description = "Missing property_id"),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
     ),
@@ -87,8 +92,8 @@ pub async fn health(
 pub async fn create_channel(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
-    Json(req): Json<serde_json::Value>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    Json(req): Json<hotel8::meta::contracts::ChannelCreateRequest>,
+) -> Result<Json<hotel8::meta::contracts::ChannelCreatedResponse>, (StatusCode, String)> {
     let a = crate::auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -100,49 +105,46 @@ pub async fn create_channel(
     let env_id = resolve_env(&a);
     let mut conn = state.pool.begin().await.map_err(err_db)?;
     set_tenant_context(&mut conn, env_id).await;
-    let property_id: uuid::Uuid = req
-        .get("property_id")
-        .and_then(|v| v.as_str())
-        .and_then(|s| uuid::Uuid::parse_str(s).ok())
-        .ok_or_else(|| (StatusCode::BAD_REQUEST, "property_id required".to_string()))?;
-    let channel_code = req
-        .get("channel_code")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let channel_name = req
-        .get("channel_name")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let channel_type = req
-        .get("channel_type")
-        .and_then(|v| v.as_str())
-        .unwrap_or("GOOGLE");
+    // Wire-compatible defaults mirroring the previous Value-based reads.
+    let channel_code = req.channel_code.unwrap_or_default();
+    let channel_name = req.channel_name.unwrap_or_default();
+    let channel_type = req.channel_type.unwrap_or_else(|| "GOOGLE".to_string());
+    let property_id = req.property_id;
     let row = sqlx::query("INSERT INTO meta.channels (property_id, env_id, channel_code, channel_name, channel_type) VALUES ($1, $2, $3, $4, $5) RETURNING id, channel_code, channel_name, channel_type::text as channel_type, is_active")
         .bind(property_id).bind(env_id).bind(channel_code).bind(channel_name).bind(channel_type)
         .fetch_one(&mut *conn).await.map_err(err_db)?;
     let id: uuid::Uuid = row.get("id");
     conn.commit().await.map_err(err_db)?;
     Ok(Json(
-        serde_json::json!({ "id": id, "property_id": property_id, "channel_code": row.get::<String, _>("channel_code"), "channel_name": row.get::<String, _>("channel_name"), "channel_type": row.get::<String, _>("channel_type"), "is_active": row.get::<bool, _>("is_active") }),
+        hotel8::meta::contracts::ChannelCreatedResponse {
+            id,
+            property_id,
+            channel_code: row.get("channel_code"),
+            channel_name: row.get("channel_name"),
+            channel_type: row.get("channel_type"),
+            is_active: row.get("is_active"),
+        },
     ))
 }
 #[utoipa::path(
     get,
     path = "/v1/channels",
+    params(
+        ("property_id" = Option<uuid::Uuid>, Query, description = "Filter by property"),
+    ),
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::ChannelListResponse),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
     ),
     security(),
     tag = "meta",
 )]
-
 pub async fn list_channels(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
-    Query(params): Query<serde_json::Value>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    Query(params): Query<hotel8::meta::contracts::ChannelListQuery>,
+) -> Result<Json<hotel8::meta::contracts::ChannelListResponse>, (StatusCode, String)> {
     let a = crate::auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -154,39 +156,46 @@ pub async fn list_channels(
     let env_id = resolve_env(&a);
     let mut conn = state.pool.begin().await.map_err(err_db)?;
     set_tenant_context(&mut conn, env_id).await;
-    let property_id = params
-        .get("property_id")
-        .and_then(|v| v.as_str())
-        .and_then(|s| uuid::Uuid::parse_str(s).ok());
+    let property_id = params.property_id;
     let rows = if let Some(pid) = property_id {
         sqlx::query("SELECT id, channel_code, channel_name, channel_type::text as channel_type, is_active FROM meta.channels WHERE property_id = $1 ORDER BY channel_code").bind(pid).fetch_all(&mut *conn).await.map_err(err_db)?
     } else {
         sqlx::query("SELECT id, channel_code, channel_name, channel_type::text as channel_type, is_active FROM meta.channels ORDER BY channel_code").fetch_all(&mut *conn).await.map_err(err_db)?
     };
-    let items: Vec<serde_json::Value> = rows.iter().map(|r| serde_json::json!({ "id": r.get::<uuid::Uuid, _>("id"), "channel_code": r.get::<String, _>("channel_code"), "channel_name": r.get::<String, _>("channel_name"), "channel_type": r.get::<String, _>("channel_type"), "is_active": r.get::<bool, _>("is_active") })).collect();
+    let items: Vec<hotel8::meta::contracts::ChannelListRow> = rows
+        .iter()
+        .map(|r| hotel8::meta::contracts::ChannelListRow {
+            id: r.get("id"),
+            channel_code: r.get("channel_code"),
+            channel_name: r.get("channel_name"),
+            channel_type: r.get("channel_type"),
+            is_active: r.get("is_active"),
+        })
+        .collect();
     conn.commit().await.map_err(err_db)?;
-    Ok(Json(serde_json::json!({ "items": items })))
+    Ok(Json(hotel8::meta::contracts::ChannelListResponse { items }))
 }
 
 // H4 - remaining handlers
 #[utoipa::path(
     put,
     path = "/v1/channels/{channel_id}",
+    request_body = hotel8::meta::contracts::ChannelUpdateRequest,
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::ChannelUpdatedResponse),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
+        (status = 404, description = "Channel not found"),
     ),
     security(),
     tag = "meta",
 )]
-
 pub async fn update_channel(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(channel_id): Path<uuid::Uuid>,
-    Json(req): Json<serde_json::Value>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    Json(req): Json<hotel8::meta::contracts::ChannelUpdateRequest>,
+) -> Result<Json<hotel8::meta::contracts::ChannelUpdatedResponse>, (StatusCode, String)> {
     let a = crate::auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -198,9 +207,9 @@ pub async fn update_channel(
     let env_id = resolve_env(&a);
     let mut conn = state.pool.begin().await.map_err(err_db)?;
     set_tenant_context(&mut conn, env_id).await;
-    let channel_name = req.get("channel_name").and_then(|v| v.as_str());
-    let is_active = req.get("is_active").and_then(|v| v.as_bool());
-    let api_key_ref = req.get("api_key_ref").and_then(|v| v.as_str());
+    let channel_name = req.channel_name;
+    let is_active = req.is_active;
+    let api_key_ref = req.api_key_ref;
     let row = sqlx::query(
         "UPDATE meta.channels SET \
          channel_name = COALESCE($1, channel_name), \
@@ -222,32 +231,32 @@ pub async fn update_channel(
     .await
     .map_err(err_emit)?;
     conn.commit().await.map_err(err_db)?;
-    Ok(Json(serde_json::json!({
-        "id": row.get::<uuid::Uuid, _>("id"),
-        "channel_code": row.get::<String, _>("channel_code"),
-        "channel_name": row.get::<String, _>("channel_name"),
-        "channel_type": row.get::<String, _>("channel_type"),
-        "is_active": row.get::<bool, _>("is_active"),
-        "api_key_ref": row.get::<Option<String>, _>("api_key_ref"),
-    })))
+    Ok(Json(hotel8::meta::contracts::ChannelUpdatedResponse {
+        id: row.get("id"),
+        channel_code: row.get("channel_code"),
+        channel_name: row.get("channel_name"),
+        channel_type: row.get("channel_type"),
+        is_active: row.get("is_active"),
+        api_key_ref: row.get("api_key_ref"),
+    }))
 }
 #[utoipa::path(
     delete,
     path = "/v1/channels/{channel_id}",
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::ChannelDeletedResponse),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
+        (status = 404, description = "Channel not found"),
     ),
     security(),
     tag = "meta",
 )]
-
 pub async fn delete_channel(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(channel_id): Path<uuid::Uuid>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<hotel8::meta::contracts::ChannelDeletedResponse>, (StatusCode, String)> {
     let a = crate::auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -278,27 +287,29 @@ pub async fn delete_channel(
     .await
     .map_err(err_emit)?;
     conn.commit().await.map_err(err_db)?;
-    Ok(Json(
-        serde_json::json!({ "deleted": true, "id": channel_id }),
-    ))
+    Ok(Json(hotel8::meta::contracts::ChannelDeletedResponse {
+        deleted: true,
+        id: channel_id,
+    }))
 }
 #[utoipa::path(
     post,
     path = "/v1/channel-configs",
+    request_body = hotel8::meta::contracts::ChannelConfigRequest,
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::ChannelConfigResponse),
+        (status = 400, description = "Missing channel_id or property_id"),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
     ),
     security(),
     tag = "meta",
 )]
-
 pub async fn configure_channel(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
-    Json(req): Json<serde_json::Value>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    Json(req): Json<hotel8::meta::contracts::ChannelConfigRequest>,
+) -> Result<Json<hotel8::meta::contracts::ChannelConfigResponse>, (StatusCode, String)> {
     let a = crate::auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -310,34 +321,15 @@ pub async fn configure_channel(
     let env_id = resolve_env(&a);
     let mut conn = state.pool.begin().await.map_err(err_db)?;
     set_tenant_context(&mut conn, env_id).await;
-    let channel_id: uuid::Uuid = req
-        .get("channel_id")
-        .and_then(|v| v.as_str())
-        .and_then(|s| uuid::Uuid::parse_str(s).ok())
-        .ok_or_else(|| (StatusCode::BAD_REQUEST, "channel_id required".to_string()))?;
-    let property_id: uuid::Uuid = req
-        .get("property_id")
-        .and_then(|v| v.as_str())
-        .and_then(|s| uuid::Uuid::parse_str(s).ok())
-        .ok_or_else(|| (StatusCode::BAD_REQUEST, "property_id required".to_string()))?;
-    let hotel_id = req.get("hotel_id").and_then(|v| v.as_str()).unwrap_or("");
-    let rate_multiplier = req
-        .get("rate_multiplier")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(1.0);
-    let landing_page_url = req
-        .get("landing_page_url")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let utm_source = req.get("utm_source").and_then(|v| v.as_str()).unwrap_or("");
-    let utm_campaign = req
-        .get("utm_campaign")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let is_enabled = req
-        .get("is_enabled")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(true);
+    // Wire-compatible defaults mirroring the previous Value-based reads.
+    let channel_id = req.channel_id;
+    let property_id = req.property_id;
+    let hotel_id = req.hotel_id.unwrap_or_default();
+    let rate_multiplier = req.rate_multiplier.unwrap_or(1.0);
+    let landing_page_url = req.landing_page_url.unwrap_or_default();
+    let utm_source = req.utm_source.unwrap_or_default();
+    let utm_campaign = req.utm_campaign.unwrap_or_default();
+    let is_enabled = req.is_enabled.unwrap_or(true);
     let row = sqlx::query(
         "INSERT INTO meta.channel_configs (channel_id, property_id, hotel_id, rate_multiplier, landing_page_url, utm_source, utm_campaign, is_enabled) \
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) \
@@ -359,35 +351,34 @@ pub async fn configure_channel(
     .await
     .map_err(err_emit)?;
     conn.commit().await.map_err(err_db)?;
-    Ok(Json(serde_json::json!({
-        "id": row.get::<uuid::Uuid, _>("id"),
-        "channel_id": row.get::<uuid::Uuid, _>("channel_id"),
-        "property_id": row.get::<uuid::Uuid, _>("property_id"),
-        "hotel_id": row.get::<String, _>("hotel_id"),
-        "rate_multiplier": row.get::<String, _>("rate_multiplier"),
-        "landing_page_url": row.get::<String, _>("landing_page_url"),
-        "utm_source": row.get::<String, _>("utm_source"),
-        "utm_campaign": row.get::<String, _>("utm_campaign"),
-        "is_enabled": row.get::<bool, _>("is_enabled"),
-    })))
+    Ok(Json(hotel8::meta::contracts::ChannelConfigResponse {
+        id: row.get("id"),
+        channel_id: row.get("channel_id"),
+        property_id: row.get("property_id"),
+        hotel_id: row.get("hotel_id"),
+        rate_multiplier: row.get("rate_multiplier"),
+        landing_page_url: row.get("landing_page_url"),
+        utm_source: row.get("utm_source"),
+        utm_campaign: row.get("utm_campaign"),
+        is_enabled: row.get("is_enabled"),
+    }))
 }
 #[utoipa::path(
     get,
     path = "/v1/channels/{channel_id}/configs",
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::ChannelConfigListResponse),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
     ),
     security(),
     tag = "meta",
 )]
-
 pub async fn list_channel_configs(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(channel_id): Path<uuid::Uuid>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<hotel8::meta::contracts::ChannelConfigListResponse>, (StatusCode, String)> {
     let a = crate::auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -404,42 +395,43 @@ pub async fn list_channel_configs(
          FROM meta.channel_configs WHERE channel_id = $1 ORDER BY created_at",
     )
     .bind(channel_id).fetch_all(&mut *conn).await.map_err(err_db)?;
-    let items: Vec<serde_json::Value> = rows
+    let items: Vec<hotel8::meta::contracts::ChannelConfigResponse> = rows
         .iter()
         .map(|r| {
-            serde_json::json!({
-                "id": r.get::<uuid::Uuid, _>("id"),
-                "channel_id": r.get::<uuid::Uuid, _>("channel_id"),
-                "property_id": r.get::<uuid::Uuid, _>("property_id"),
-                "hotel_id": r.get::<String, _>("hotel_id"),
-                "rate_multiplier": r.get::<String, _>("rate_multiplier"),
-                "landing_page_url": r.get::<String, _>("landing_page_url"),
-                "utm_source": r.get::<String, _>("utm_source"),
-                "utm_campaign": r.get::<String, _>("utm_campaign"),
-                "is_enabled": r.get::<bool, _>("is_enabled"),
-            })
+            hotel8::meta::contracts::ChannelConfigResponse {
+                id: r.get("id"),
+                channel_id: r.get("channel_id"),
+                property_id: r.get("property_id"),
+                hotel_id: r.get("hotel_id"),
+                rate_multiplier: r.get("rate_multiplier"),
+                landing_page_url: r.get("landing_page_url"),
+                utm_source: r.get("utm_source"),
+                utm_campaign: r.get("utm_campaign"),
+                is_enabled: r.get("is_enabled"),
+            }
         })
         .collect();
     conn.commit().await.map_err(err_db)?;
-    Ok(Json(serde_json::json!({ "items": items })))
+    Ok(Json(hotel8::meta::contracts::ChannelConfigListResponse { items }))
 }
 #[utoipa::path(
     post,
     path = "/v1/channels/{channel_id}/sync",
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::AriSyncResult),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
+        (status = 404, description = "Channel not found"),
+        (status = 502, description = "PMS inventory read failed"),
     ),
     security(),
     tag = "meta",
 )]
-
 pub async fn sync_ari(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(channel_id): Path<uuid::Uuid>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<hotel8::meta::contracts::AriSyncResult>, (StatusCode, String)> {
     let a = crate::auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -532,26 +524,29 @@ pub async fn sync_ari(
     .await
     .map_err(err_emit)?;
     conn.commit().await.map_err(err_db)?;
-    Ok(Json(
-        serde_json::json!({ "channel_id": channel_id, "property_id": property_id, "records_pushed": pushed, "rate_multiplier": multiplier }),
-    ))
+    Ok(Json(hotel8::meta::contracts::AriSyncResult {
+        channel_id,
+        property_id,
+        records_pushed: pushed,
+        rate_multiplier: multiplier,
+    }))
 }
 #[utoipa::path(
     post,
     path = "/v1/cron/full-sync",
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::FullSyncResult),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
+        (status = 502, description = "PMS inventory read failed"),
     ),
     security(),
     tag = "meta-cron",
 )]
-
 pub async fn full_sync(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<hotel8::meta::contracts::FullSyncResult>, (StatusCode, String)> {
     let a = crate::auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -573,7 +568,7 @@ pub async fn full_sync(
     .await
     .map_err(err_db)?;
     let mut total_pushed = 0i64;
-    let mut channel_results: Vec<serde_json::Value> = Vec::new();
+    let mut channel_results: Vec<hotel8::meta::contracts::ChannelSyncRow> = Vec::new();
 
     for ch in &channels {
         let channel_id: uuid::Uuid = ch.get("id");
@@ -631,7 +626,11 @@ pub async fn full_sync(
         sqlx::query("INSERT INTO meta.sync_log (channel_id, property_id, sync_type, records_pushed, status) VALUES ($1, $2, 'full', $3, 'ok')")
             .bind(channel_id).bind(property_id).bind(pushed).execute(&mut *conn).await.map_err(err_db)?;
         total_pushed += pushed;
-        channel_results.push(serde_json::json!({ "channel_id": channel_id, "property_id": property_id, "records_pushed": pushed }));
+        channel_results.push(hotel8::meta::contracts::ChannelSyncRow {
+            channel_id,
+            property_id,
+            records_pushed: pushed,
+        });
     }
     emit_tx(
         &mut *conn,
@@ -643,27 +642,30 @@ pub async fn full_sync(
     .await
     .map_err(err_emit)?;
     conn.commit().await.map_err(err_db)?;
-    Ok(Json(
-        serde_json::json!({ "channels_synced": channels.len(), "total_records_pushed": total_pushed, "results": channel_results }),
-    ))
+    Ok(Json(hotel8::meta::contracts::FullSyncResult {
+        channels_synced: channels.len(),
+        total_records_pushed: total_pushed,
+        results: channel_results,
+    }))
 }
 #[utoipa::path(
     post,
     path = "/v1/channels/{channel_id}/verify",
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::RateVerificationResult),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
+        (status = 404, description = "Channel not found"),
+        (status = 502, description = "PMS inventory read failed"),
     ),
     security(),
     tag = "meta",
 )]
-
 pub async fn verify_rate_accuracy(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(channel_id): Path<uuid::Uuid>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<hotel8::meta::contracts::RateVerificationResult>, (StatusCode, String)> {
     let a = crate::auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -728,7 +730,7 @@ pub async fn verify_rate_accuracy(
          FROM meta.rate_ads WHERE channel_id = $1 ORDER BY date LIMIT 500",
     )
     .bind(channel_id).fetch_all(&mut *conn).await.map_err(err_db)?;
-    let mut discrepancies: Vec<serde_json::Value> = Vec::new();
+    let mut discrepancies: Vec<hotel8::meta::contracts::RateDiscrepancy> = Vec::new();
     for a in &ads {
         let rt: String = a.get("room_type_code");
         let date: sqlx::types::chrono::NaiveDate = a.get("date");
@@ -737,25 +739,31 @@ pub async fn verify_rate_accuracy(
         // D4: the discrepancy predicate lives in `ad_pricing::discrepancy`.
         match crate::ad_pricing::discrepancy(src_avail.copied(), ad_available) {
             Some(crate::ad_pricing::Discrepancy::MissingSource) => {
-                discrepancies.push(serde_json::json!({
-                    "room_type_code": rt,
-                    "rate_plan_code": a.get::<String, _>("rate_plan_code"),
-                    "date": date,
-                    "ad_rate": a.get::<String, _>("ad_rate"),
-                    "source_rate": Option::<String>::None,
-                    "reason": "no_inventory_row",
-                }))
+                discrepancies
+                    .push(hotel8::meta::contracts::RateDiscrepancy::Missing(
+                        hotel8::meta::contracts::RateDiscrepancyMissing {
+                            room_type_code: rt.clone(),
+                            rate_plan_code: a.get("rate_plan_code"),
+                            date,
+                            ad_rate: a.get("ad_rate"),
+                            source_rate: None,
+                            reason: "no_inventory_row".into(),
+                        },
+                    ));
             }
             Some(crate::ad_pricing::Discrepancy::AvailabilityMismatch) => {
-                discrepancies.push(serde_json::json!({
-                    "room_type_code": rt,
-                    "rate_plan_code": a.get::<String, _>("rate_plan_code"),
-                    "date": date,
-                    "ad_rate": a.get::<String, _>("ad_rate"),
-                    "source_available": src_avail,
-                    "ad_available": ad_available,
-                    "reason": "availability_mismatch",
-                }))
+                discrepancies
+                    .push(hotel8::meta::contracts::RateDiscrepancy::Mismatch(
+                        hotel8::meta::contracts::RateDiscrepancyMismatch {
+                            room_type_code: rt.clone(),
+                            rate_plan_code: a.get("rate_plan_code"),
+                            date,
+                            ad_rate: a.get("ad_rate"),
+                            source_available: src_avail.copied(),
+                            ad_available,
+                            reason: "availability_mismatch".into(),
+                        },
+                    ));
             }
             None => {}
         }
@@ -771,27 +779,30 @@ pub async fn verify_rate_accuracy(
     .await
     .map_err(err_emit)?;
     conn.commit().await.map_err(err_db)?;
-    Ok(Json(
-        serde_json::json!({ "channel_id": channel_id, "discrepancy_count": rows_len, "discrepancies": discrepancies }),
-    ))
+    Ok(Json(hotel8::meta::contracts::RateVerificationResult {
+        channel_id,
+        discrepancy_count: discrepancies.len(),
+        discrepancies,
+    }))
 }
 #[utoipa::path(
     post,
     path = "/v1/channels/{channel_id}/content",
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::ContentPushResult),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
+        (status = 404, description = "Channel not found"),
+        (status = 502, description = "PMS room-type read failed"),
     ),
     security(),
     tag = "meta",
 )]
-
 pub async fn push_content(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(channel_id): Path<uuid::Uuid>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<hotel8::meta::contracts::ContentPushResult>, (StatusCode, String)> {
     let a = crate::auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -825,15 +836,27 @@ pub async fn push_content(
                 format!("PMS room-type read failed: {e}"),
             )
         })?;
-    let room_items: Vec<serde_json::Value> = room_types
+    let room_items: Vec<hotel8::meta::contracts::ContentRoomType> = room_types
         .iter()
-        .map(|rt| {
-            serde_json::json!({
-                "room_type_code": rt.get("room_type_code"),
-                "room_type_name": rt.get("room_type_name"),
-                "description": rt.get("description"),
-                "max_occupancy": rt.get("max_occupancy"),
-            })
+        .map(|rt| hotel8::meta::contracts::ContentRoomType {
+            room_type_code: rt
+                .get("room_type_code")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            room_type_name: rt
+                .get("room_type_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            description: rt
+                .get("description")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            max_occupancy: rt
+                .get("max_occupancy")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0),
         })
         .collect();
 
@@ -849,27 +872,29 @@ pub async fn push_content(
     .await
     .map_err(err_emit)?;
     conn.commit().await.map_err(err_db)?;
-    Ok(Json(
-        serde_json::json!({ "channel_id": channel_id, "property_id": property_id, "room_types_pushed": room_items.len(), "rooms": room_items }),
-    ))
+    Ok(Json(hotel8::meta::contracts::ContentPushResult {
+        channel_id,
+        property_id,
+        room_types_pushed: room_items.len(),
+        rooms: room_items,
+    }))
 }
 #[utoipa::path(
     get,
     path = "/v1/admin/properties/{property_id}/analytics",
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::AnalyticsResponse),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
     ),
     security(),
     tag = "meta-admin",
 )]
-
 pub async fn get_analytics(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(property_id): Path<uuid::Uuid>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<hotel8::meta::contracts::AnalyticsResponse>, (StatusCode, String)> {
     let a = crate::auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -908,46 +933,47 @@ pub async fn get_analytics(
          GROUP BY click_date ORDER BY click_date",
     )
     .bind(property_id).bind(env_id).fetch_all(&mut *conn).await.map_err(err_db)?;
-    let daily_items: Vec<serde_json::Value> = daily
+    let daily_items: Vec<hotel8::meta::contracts::AnalyticsDailyRow> = daily
         .iter()
-        .map(|r| {
-            serde_json::json!({
-                "date": r.get::<sqlx::types::chrono::NaiveDate, _>("click_date"),
-                "clicks": r.get::<i64, _>("clicks"),
-                "cost": r.get::<String, _>("cost"),
-            })
+        .map(|r| hotel8::meta::contracts::AnalyticsDailyRow {
+            date: r.get("click_date"),
+            clicks: r.get("clicks"),
+            cost: r.get("cost"),
         })
         .collect();
 
     conn.commit().await.map_err(err_db)?;
 
-    Ok(Json(serde_json::json!({
-        "property_id": property_id,
-        "clicks": clicks,
-        "total_cost": total_cost,
-        "channels": channels,
-        "impressions": clicks, // proxied from clicks pending impressions table
-        "roi": serde_json::json!({ "revenue": "0", "cost": total_cost }),
-        "daily": daily_items,
-    })))
+    Ok(Json(hotel8::meta::contracts::AnalyticsResponse {
+        property_id,
+        clicks,
+        total_cost: total_cost.clone(),
+        channels,
+        impressions: clicks, // proxied from clicks pending impressions table
+        roi: hotel8::meta::contracts::AnalyticsRevenue {
+            revenue: "0".into(),
+            cost: total_cost,
+        },
+        daily: daily_items,
+    }))
 }
 #[utoipa::path(
     post,
     path = "/v1/utm/generate",
+    request_body = hotel8::meta::contracts::UtmGenerateRequest,
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::UtmDeepLink),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
     ),
     security(),
     tag = "meta",
 )]
-
 pub async fn generate_utm(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
-    Json(req): Json<serde_json::Value>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    Json(req): Json<hotel8::meta::contracts::UtmGenerateRequest>,
+) -> Result<Json<hotel8::meta::contracts::UtmDeepLink>, (StatusCode, String)> {
     let a = crate::auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -958,44 +984,29 @@ pub async fn generate_utm(
     .await?;
     let _env_id = resolve_env(&a);
 
+    // Wire-compatible defaults mirroring the previous Value-based reads.
     let base_url = req
-        .get("base_url")
-        .and_then(|v| v.as_str())
-        .unwrap_or("https://book.example.com");
-    let utm_source = req
-        .get("utm_source")
-        .and_then(|v| v.as_str())
-        .unwrap_or("google");
-    let utm_medium = req
-        .get("utm_medium")
-        .and_then(|v| v.as_str())
-        .unwrap_or("cpc");
-    let utm_campaign = req
-        .get("utm_campaign")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let utm_term = req.get("utm_term").and_then(|v| v.as_str()).unwrap_or("");
-    let utm_content = req
-        .get("utm_content")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let property_id = req
-        .get("property_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let checkin = req.get("checkin").and_then(|v| v.as_str()).unwrap_or("");
-    let checkout = req.get("checkout").and_then(|v| v.as_str()).unwrap_or("");
+        .base_url
+        .unwrap_or_else(|| "https://book.example.com".into());
+    let utm_source = req.utm_source.unwrap_or_else(|| "google".into());
+    let utm_medium = req.utm_medium.unwrap_or_else(|| "cpc".into());
+    let utm_campaign = req.utm_campaign.unwrap_or_default();
+    let utm_term = req.utm_term.unwrap_or_default();
+    let utm_content = req.utm_content.unwrap_or_default();
+    let property_id = req.property_id.unwrap_or_default();
+    let checkin = req.checkin.unwrap_or_default();
+    let checkout = req.checkout.unwrap_or_default();
 
     let mut params: Vec<(String, String)> = vec![
-        ("utm_source".into(), utm_source.into()),
-        ("utm_medium".into(), utm_medium.into()),
-        ("utm_campaign".into(), utm_campaign.into()),
+        ("utm_source".into(), utm_source.clone()),
+        ("utm_medium".into(), utm_medium.clone()),
+        ("utm_campaign".into(), utm_campaign.clone()),
     ];
     if !utm_term.is_empty() {
-        params.push(("utm_term".into(), utm_term.into()));
+        params.push(("utm_term".into(), utm_term.clone()));
     }
     if !utm_content.is_empty() {
-        params.push(("utm_content".into(), utm_content.into()));
+        params.push(("utm_content".into(), utm_content.clone()));
     }
     if !property_id.is_empty() {
         params.push(("property_id".into(), property_id.into()));
@@ -1010,46 +1021,55 @@ pub async fn generate_utm(
     // D4: the link shape (base + ?utm_source=&utm_medium=&utm_campaign=) is
     // `ad_pricing::utm_deep_link` - the multi-param path below extends it
     // with the optional term/content/property/dates parameters.
-    let deep_link =
-        crate::ad_pricing::utm_deep_link(base_url, utm_source, utm_medium, utm_campaign);
+    let deep_link = crate::ad_pricing::utm_deep_link(
+        &base_url,
+        &utm_source,
+        &utm_medium,
+        &utm_campaign,
+    );
     let extra_qs = params
         .iter()
         .skip(3)
         .map(|(k, v)| format!("{}={}", k, pct_encode(v)))
         .collect::<Vec<_>>()
         .join("&");
-    let deep_link = if deep_link.contains('&') || extra_qs.is_empty() {
-        if extra_qs.is_empty() {
-            deep_link
-        } else {
-            format!("{deep_link}&{extra_qs}")
-        }
+    let deep_link = if extra_qs.is_empty() {
+        deep_link
     } else {
         format!("{deep_link}&{extra_qs}")
     };
 
-    Ok(Json(
-        serde_json::json!({ "deep_link": deep_link, "utm": serde_json::json!({ "source": utm_source, "medium": utm_medium, "campaign": utm_campaign, "term": utm_term, "content": utm_content }) }),
-    ))
+    Ok(Json(hotel8::meta::contracts::UtmDeepLink {
+        deep_link,
+        utm: hotel8::meta::contracts::UtmParams {
+            source: utm_source,
+            medium: utm_medium,
+            campaign: utm_campaign,
+            term: utm_term,
+            content: utm_content,
+        },
+    }))
 }
 #[utoipa::path(
     post,
     path = "/v1/channels/{channel_id}/credentials",
+    request_body = hotel8::meta::contracts::CredentialRequest,
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::CredentialStored),
+        (status = 400, description = "Missing api_key"),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
+        (status = 500, description = "Master key unavailable / seal failed"),
     ),
     security(),
     tag = "meta",
 )]
-
 pub async fn encrypt_credentials(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(channel_id): Path<uuid::Uuid>,
-    Json(req): Json<serde_json::Value>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    Json(req): Json<hotel8::meta::contracts::CredentialRequest>,
+) -> Result<Json<hotel8::meta::contracts::CredentialStored>, (StatusCode, String)> {
     let a = crate::auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -1062,10 +1082,10 @@ pub async fn encrypt_credentials(
     let mut conn = state.pool.begin().await.map_err(err_db)?;
     set_tenant_context(&mut conn, env_id).await;
 
-    let api_key = req
-        .get("api_key")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| (StatusCode::BAD_REQUEST, "api_key required".to_string()))?;
+    let api_key = req.api_key;
+    if api_key.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "api_key required".to_string()));
+    }
     let secret_ref = format!("hotel8://meta/channel/{}/api_key", channel_id);
 
     // B5 (principles §4.4, design §9): the plaintext NEVER lands in a table.
@@ -1112,26 +1132,27 @@ pub async fn encrypt_credentials(
     .await
     .map_err(err_emit)?;
     conn.commit().await.map_err(err_db)?;
-    Ok(Json(
-        serde_json::json!({ "channel_id": channel_id, "secret_ref": secret_ref, "stored": true }),
-    ))
+    Ok(Json(hotel8::meta::contracts::CredentialStored {
+        channel_id,
+        secret_ref,
+        stored: true,
+    }))
 }
 #[utoipa::path(
     get,
     path = "/v1/rate-limits",
     responses(
-        (status = 200, description = "OK", body = serde_json::Value),
+        (status = 200, description = "OK", body = hotel8::meta::contracts::RateLimits),
         (status = 401, description = "Not authenticated"),
         (status = 403, description = "Forbidden"),
     ),
     security(),
     tag = "meta",
 )]
-
 pub async fn get_rate_limits(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<hotel8::meta::contracts::RateLimits>, (StatusCode, String)> {
     let _a = crate::auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -1140,9 +1161,21 @@ pub async fn get_rate_limits(
         sentin8::shield::EvalTarget::new("hotel8:meta:read"),
     )
     .await?;
-    Ok(Json(serde_json::json!({
-        "sync": { "max_concurrent": 4, "rate_per_minute": 60, "burst": 10 },
-        "content": { "max_concurrent": 2, "rate_per_minute": 20, "burst": 5 },
-        "ari": { "batch_size": 365, "interval_seconds": 60 },
-    })))
+    use hotel8::meta::contracts::{RateLimitAri, RateLimitFamily, RateLimits};
+    Ok(Json(RateLimits {
+        sync: RateLimitFamily {
+            max_concurrent: 4,
+            rate_per_minute: 60,
+            burst: 10,
+        },
+        content: RateLimitFamily {
+            max_concurrent: 2,
+            rate_per_minute: 20,
+            burst: 5,
+        },
+        ari: RateLimitAri {
+            batch_size: 365,
+            interval_seconds: 60,
+        },
+    }))
 }
