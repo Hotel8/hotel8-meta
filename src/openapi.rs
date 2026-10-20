@@ -112,4 +112,5 @@ use utoipa::OpenApi;
         (name = "policy", description = "Shield policy administration (shared surface)"),
         (name = "meta", description = "Hotel8:Meta - metasearch connector"),
     ),
-)]pub struct MetaOpenApi;
+)]
+pub struct MetaOpenApi;

@@ -115,16 +115,14 @@ pub async fn create_channel(
         .fetch_one(&mut *conn).await.map_err(err_db)?;
     let id: uuid::Uuid = row.get("id");
     conn.commit().await.map_err(err_db)?;
-    Ok(Json(
-        hotel8::meta::contracts::ChannelCreatedResponse {
-            id,
-            property_id,
-            channel_code: row.get("channel_code"),
-            channel_name: row.get("channel_name"),
-            channel_type: row.get("channel_type"),
-            is_active: row.get("is_active"),
-        },
-    ))
+    Ok(Json(hotel8::meta::contracts::ChannelCreatedResponse {
+        id,
+        property_id,
+        channel_code: row.get("channel_code"),
+        channel_name: row.get("channel_name"),
+        channel_type: row.get("channel_type"),
+        is_active: row.get("is_active"),
+    }))
 }
 #[utoipa::path(
     get,
@@ -397,22 +395,22 @@ pub async fn list_channel_configs(
     .bind(channel_id).fetch_all(&mut *conn).await.map_err(err_db)?;
     let items: Vec<hotel8::meta::contracts::ChannelConfigResponse> = rows
         .iter()
-        .map(|r| {
-            hotel8::meta::contracts::ChannelConfigResponse {
-                id: r.get("id"),
-                channel_id: r.get("channel_id"),
-                property_id: r.get("property_id"),
-                hotel_id: r.get("hotel_id"),
-                rate_multiplier: r.get("rate_multiplier"),
-                landing_page_url: r.get("landing_page_url"),
-                utm_source: r.get("utm_source"),
-                utm_campaign: r.get("utm_campaign"),
-                is_enabled: r.get("is_enabled"),
-            }
+        .map(|r| hotel8::meta::contracts::ChannelConfigResponse {
+            id: r.get("id"),
+            channel_id: r.get("channel_id"),
+            property_id: r.get("property_id"),
+            hotel_id: r.get("hotel_id"),
+            rate_multiplier: r.get("rate_multiplier"),
+            landing_page_url: r.get("landing_page_url"),
+            utm_source: r.get("utm_source"),
+            utm_campaign: r.get("utm_campaign"),
+            is_enabled: r.get("is_enabled"),
         })
         .collect();
     conn.commit().await.map_err(err_db)?;
-    Ok(Json(hotel8::meta::contracts::ChannelConfigListResponse { items }))
+    Ok(Json(hotel8::meta::contracts::ChannelConfigListResponse {
+        items,
+    }))
 }
 #[utoipa::path(
     post,
@@ -739,31 +737,29 @@ pub async fn verify_rate_accuracy(
         // D4: the discrepancy predicate lives in `ad_pricing::discrepancy`.
         match crate::ad_pricing::discrepancy(src_avail.copied(), ad_available) {
             Some(crate::ad_pricing::Discrepancy::MissingSource) => {
-                discrepancies
-                    .push(hotel8::meta::contracts::RateDiscrepancy::Missing(
-                        hotel8::meta::contracts::RateDiscrepancyMissing {
-                            room_type_code: rt.clone(),
-                            rate_plan_code: a.get("rate_plan_code"),
-                            date,
-                            ad_rate: a.get("ad_rate"),
-                            source_rate: None,
-                            reason: "no_inventory_row".into(),
-                        },
-                    ));
+                discrepancies.push(hotel8::meta::contracts::RateDiscrepancy::Missing(
+                    hotel8::meta::contracts::RateDiscrepancyMissing {
+                        room_type_code: rt.clone(),
+                        rate_plan_code: a.get("rate_plan_code"),
+                        date,
+                        ad_rate: a.get("ad_rate"),
+                        source_rate: None,
+                        reason: "no_inventory_row".into(),
+                    },
+                ));
             }
             Some(crate::ad_pricing::Discrepancy::AvailabilityMismatch) => {
-                discrepancies
-                    .push(hotel8::meta::contracts::RateDiscrepancy::Mismatch(
-                        hotel8::meta::contracts::RateDiscrepancyMismatch {
-                            room_type_code: rt.clone(),
-                            rate_plan_code: a.get("rate_plan_code"),
-                            date,
-                            ad_rate: a.get("ad_rate"),
-                            source_available: src_avail.copied(),
-                            ad_available,
-                            reason: "availability_mismatch".into(),
-                        },
-                    ));
+                discrepancies.push(hotel8::meta::contracts::RateDiscrepancy::Mismatch(
+                    hotel8::meta::contracts::RateDiscrepancyMismatch {
+                        room_type_code: rt.clone(),
+                        rate_plan_code: a.get("rate_plan_code"),
+                        date,
+                        ad_rate: a.get("ad_rate"),
+                        source_available: src_avail.copied(),
+                        ad_available,
+                        reason: "availability_mismatch".into(),
+                    },
+                ));
             }
             None => {}
         }
@@ -1021,12 +1017,8 @@ pub async fn generate_utm(
     // D4: the link shape (base + ?utm_source=&utm_medium=&utm_campaign=) is
     // `ad_pricing::utm_deep_link` - the multi-param path below extends it
     // with the optional term/content/property/dates parameters.
-    let deep_link = crate::ad_pricing::utm_deep_link(
-        &base_url,
-        &utm_source,
-        &utm_medium,
-        &utm_campaign,
-    );
+    let deep_link =
+        crate::ad_pricing::utm_deep_link(&base_url, &utm_source, &utm_medium, &utm_campaign);
     let extra_qs = params
         .iter()
         .skip(3)
